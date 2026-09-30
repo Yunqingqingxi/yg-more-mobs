@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "yg_mobs",
+	"version": "${version}",
+	"name": "yunxigames 更多生物",
+	"description": "把原版幻翼改写成\"苦力怕幻翼\"：保留原生幻翼的翅膀/尾巴/飞行姿态与眼睛层，头和躯干换成苦力怕（苦力怕几何 + 苦力怕贴图）；俯冲命中时引发苦力怕爆炸，俯冲开始播放自定义音频。",
+	"authors": [
+		"Yunqingqingxi"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.yunxigames.YunxiGamesMobs"
+		],
+		"client": [
+			"com.yunxigames.mobs.client.YunxiGamesMobsClient"
+		]
+	},
+	"mixins": [
+		"yg-mobs.mixins.json"
+	],
+	"depends": {
+		"fabricloader": "~0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

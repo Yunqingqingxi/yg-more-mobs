@@ -1,0 +1,148 @@
+// mobkit —— 生物外观预览工具（独立 gradle 构建，放在 more_mobs/ 里但【不是】它的子项目）。
+//
+// 目的：做新生物 / 改生物外观时，不必启动客户端就能看到"它长什么样"。
+//
+// 原理：Minecraft 的实体模型几何与 UV 全在客户端 jar 的代码里，而
+// LayerDefinition.bakeRoot() 是公开的纯数学运算（不需要窗口 / GPU / 资源包），
+// PoseStack 也只是 JOML 矩阵。所以可以
+//     烘焙真实模型 → 取原版 UV → 自己软件光栅化 → 出 PNG
+// 全部在进程内完成，一次几秒；而启动客户端跑一遍要一分多钟。
+//
+// 用法见 README.md。核心 API：com.yunxigames.mobkit.ModelShot
+//
+// 与玩法包 more_mobs 的关系（拆分后，非聚合）：
+//   mobkit 需要引用 more_mobs 的 PhantomCreeperModel（客户端源集），但两个是独立构建，
+//   不能再像聚合时期那样直接拿对方源集 —— 改为依赖 more_mobs 的【构建产物 jar】：
+//   ../build/libs/yg-mobs-<mobs_version>.jar（gradle.properties 里 mobs_version 镜像了
+//   more_mobs 的 mod_version，那边升版本这里要跟着改一行）。
+//   所以跑 mobkit 之前，先在上层目录 `./gradlew build` 出 jar。
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+group = 'com.yunxigames'
+version = project.mod_version
+
+base {
+	archivesName = "yg-mobkit"
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"yg_mobkit" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+repositories {
+	maven {
+		name = 'Fabric'
+		url = 'https://maven.fabricmc.net/'
+	}
+	mavenCentral()
+}
+
+// JDK 24 字节码（工具链无关，仅控制 release）
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 24
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	// 本工具只需要 Minecraft 的模型类 + more_mobs 的模型类，不用 fabric-api 也不用 loader，
+	// 所以都不引 —— 少一个依赖就少一份解析风险（离线环境尤其明显）。
+}
+
+// 关键点：mobkit 要用「客户端」那半的 Minecraft（模型类都在里面），
+// 而 loom 的 `minecraft` 依赖只往 main 源集里放 public 那半 ——
+// 所以本工具的代码全部放在 client 源集（`src/client/java`）。
+// more_mobs 的产物 jar 里带 PhantomCreeperModel 类 + assets/yg_mobs 贴图，
+// 编译期与运行期都靠它接上。
+def mobsJar = fileTree(dir: '../build/libs', include: "yg-mobs-${mobs_version}.jar")
+
+sourceSets.client.compileClasspath += mobsJar
+sourceSets.client.runtimeClasspath += mobsJar
+
+// 输出目录：上层 more_mobs/mobkit-out/（被根 .gitignore 的 mobkit-out/ 规则忽略）
+def outDir = project.file('../mobkit-out')
+
+tasks.register('shot', JavaExec) {
+	group = 'yunxigames'
+	description = '渲染生物外观预览图（默认：苦力怕幻翼三视图），不用起客户端'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.Previews'
+	// 参数：输出目录
+	args outDir.absolutePath
+}
+
+// 与参考图量化对比：算轮廓 IoU + 出红蓝叠加图（红=本工具 / 蓝=参考 / 紫=重合）
+tasks.register('compare', JavaExec) {
+	group = 'yunxigames'
+	description = '与参考图算轮廓相似度，并输出叠加对比图'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.ReferenceCompare'
+	args project.file('reference/phantom-creeper-target.png').absolutePath,
+	     project.file('../mobkit-out/compare').absolutePath
+}
+
+// A/B 对比：两种实现路线（改材质 vs 换几何）渲成同机位图直接比
+tasks.register('ab', JavaExec) {
+	group = 'yunxigames'
+	description = '对比「只改材质」与「换几何」两种实现路线'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.AbCompare'
+	args project.file('../mobkit-out/ab').absolutePath
+}
+
+// UV 探针：打印立方体各面的 UV 矩形（核对"把一张贴图的面贴到另一个模型"的对应关系）
+tasks.register('uvProbe', JavaExec) {
+	group = 'yunxigames'
+	description = '打印原版苦力怕与幻翼各立方体面的 UV 矩形'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.UvProbe'
+}
+
+// 参考图比对 + 姿态搜索：渲染 → 归一化 → 三类掩膜 IoU → 选最像的
+tasks.register('match', JavaExec) {
+	group = 'yunxigames'
+	description = '与参考图做数值比对，自动搜索最接近的苦力怕头身姿态'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.MatchSearch'
+	args project.file('reference/phantom-creeper-target.png').absolutePath,
+	     project.file('../mobkit-out/match').absolutePath
+}
+
+// 姿态探针：打印各部件变换后的世界包围盒与脸的朝向，用数字判断姿态
+tasks.register('poseProbe', JavaExec) {
+	group = 'yunxigames'
+	description = '打印模型各部件的世界包围盒与脸朝向（判断姿态用）'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.PoseProbe'
+}
+
+// 姿态搜索：枚举旋转组合并渲染，配合上面的探针排查朝向
+tasks.register('poseSearch', JavaExec) {
+	group = 'yunxigames'
+	description = '枚举并渲染苦力怕头身的朝向候选（人工/自动比对用）'
+	dependsOn 'clientClasses'
+
+	classpath = sourceSets.client.runtimeClasspath
+	mainClass = 'com.yunxigames.mobkit.PoseSearch'
+	args project.file('../mobkit-out/pose-search').absolutePath
+}

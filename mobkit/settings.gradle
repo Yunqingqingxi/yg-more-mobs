@@ -1,0 +1,13 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+// mobkit 是放在 more_mobs/ 里的独立 gradle 构建（不是它的子项目，见 build.gradle 头注释）。
+rootProject.name = 'mobkit'

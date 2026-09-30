@@ -1,0 +1,15 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+// 本项目是完全独立的 gradle 构建（不在任何聚合构建内），可单独 checkout / 构建 / 发布。
+// 目录里的 mobkit/ 是开发期外观预览工具，它是另一个独立构建（见 mobkit/README.md），
+// 不属于本构建的子项目 —— 本项目对它一无所知，符合「非聚合」约定。
+rootProject.name = 'more_mobs'
