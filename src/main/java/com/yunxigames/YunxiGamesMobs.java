@@ -1,6 +1,8 @@
 package com.yunxigames;
 
+import com.yunxigames.command.MobsCommand;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -28,6 +30,10 @@ public class YunxiGamesMobs implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		// 游戏内命令：/yg mobs on|off|status（俯冲爆炸 + 音效 + 外观三开关；外观部分客户端各自生效）
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
+				MobsCommand.register(dispatcher));
+
 		// 注册自定义音效：固定范围事件，玩家在 16 格内都能听到。
 		SoundEvent event = SoundEvent.createFixedRangeEvent(PHANTOM_CREEPER_SOUND, 16.0F);
 		Registry.register(BuiltInRegistries.SOUND_EVENT, PHANTOM_CREEPER_SOUND, event);
