@@ -23,6 +23,12 @@ import net.minecraft.resources.Identifier;
  * 所以这里在父类那种「幻翼贴图 + 原生通道」的基础上，<b>再补一趟</b>只提交苦力怕的头与躯干、
  * 用苦力怕自己的贴图。两趟的节点先后入队，绘制顺序自然是「先幻翼、后苦力怕」，头身盖在翅膀根上。
  *
+ * <p><b>幻翼眼睛发光层的处理</b>：原版 {@code PhantomRenderer} 会挂 {@code PhantomEyesLayer}
+ * （整棵模型树再用 {@code phantom_eyes.png} 采一遍、发光叠加）。混合模式下它提交的是
+ * {@link PhantomCreeperModel} —— 树里<b>没有苦力怕块</b>（见模型类「材质分离」注释），
+ * 而幻翼的躯干与头都被隐藏，所以它什么都不会画，无害；关掉换皮时提交的是干净的
+ * 原版树，眼睛层自动恢复原版效果，无需额外处理。
+ *
  * <p><b>为什么不用 Mixin 去改渲染器</b>：{@code LivingEntityRenderer.model} 是父类字段，
  * 而 Mixin 的 {@code @Shadow} 只在目标类自身查字段、不沿继承链找，挂 {@code PhantomRenderer}
  * 会报 {@code @Shadow field model was not located in the target class}，直接把渲染线程打死
@@ -64,12 +70,16 @@ public class PhantomCreeperRenderer extends PhantomRenderer {
 	public PhantomCreeperRenderer(EntityRendererProvider.Context context) {
 		super(context);
 
-		// 两个模型从同一个「烘焙层」（同一份 LayerDefinition 实例）建出来，避免各自烘焙一份。
+		// 混合树与原版树必须是两份独立的幻翼骨架：context.bakeLayer 对同一层有缓存语义，
+		// 共用一份实例的话，混合侧对 body/head 的隐藏改动会污染原版模型 ——
+		// 关掉 phantomCreeperVisual 后幻翼会只剩翅膀、没有躯干和头（v1.3.0 修复）。
+		// 原版树用 createBodyLayer 现烤一份干净的，绝不共享。
 		ModelPart phantomRoot = context.bakeLayer(ModelLayers.PHANTOM);
+		ModelPart vanillaRoot = PhantomModel.createBodyLayer().bakeRoot();
 		ModelPart creeperRoot = context.bakeLayer(ModelLayers.CREEPER);
 
 		this.mixedModel = new PhantomCreeperModel(phantomRoot, creeperRoot);
-		this.vanillaModel = new PhantomModel(phantomRoot);
+		this.vanillaModel = new PhantomModel(vanillaRoot);
 		this.creeperPart = new PhantomCreeperModel.CreeperPartModel(mixedModel.creeperPart());
 
 		// 父类构造里已经建好一份原版幻翼模型，这里换成混合模型（默认开启外观改造）。

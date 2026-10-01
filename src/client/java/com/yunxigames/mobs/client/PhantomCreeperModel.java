@@ -18,15 +18,16 @@ import java.util.Map;
  * 错配采样 —— 采样区一半是绿皮碎片、一半是透明，渲染出来就是错位花屏。本类只负责<b>几何</b>，
  * 贴图由 {@link PhantomCreeperRenderer} 分两趟提交解决，两者职责不再混在一起。
  *
- * <p><b>模型树怎么拼</b>（两个官方模型装到一棵新树上）：
+ * <p><b>模型树怎么拼</b>（新树只装幻翼的骨架，苦力怕块独立持有）：
  * <ul>
  *   <li>根下放幻翼的原 {@code body} —— 翅膀 / 尾巴本来就是它的子部件，跟着一起进来，
  *       拍打与摆动动画操作的是同一批 {@link ModelPart} 实例，因此动画原封不动；</li>
  *   <li>幻翼自己的躯干方块用 {@code skipDraw = true} 藏掉（<b>只跳过自身方块，子部件照常渲染</b>，
  *       所以翅膀不会被误伤；用 {@code visible=false} 会把翅膀一起藏掉）；</li>
  *   <li>幻翼的 {@code head} 是 {@code body} 的子部件，单独 {@code visible = false}；</li>
- *   <li>再挂一块苦力怕 {@code root}（键名 {@link #CREEPER_KEY}）：苦力怕模型里 {@code root} 自己
- *       就是躯干、{@code head} 挂在它下面，所以「头 + 躯干」一次就凑齐；四条腿与腿上的脚全部藏掉。</li>
+ *   <li>苦力怕的 {@code root}（root 自身就是躯干、{@code head} 挂在它下面，「头 + 躯干」一次凑齐；
+ *       四条腿与腿上的脚全部藏掉）<b>不挂进树</b>，由渲染器独立持有、单独以苦力怕贴图提交
+ *       —— 原因见下方「材质分离」。</li>
  * </ul>
  *
  * <p><b>为什么根必须留着幻翼的 {@code body}</b>：父类 {@link PhantomModel} 的构造会依次取
@@ -36,14 +37,17 @@ import java.util.Map;
  * <p><b>位置对齐</b>：苦力怕以脚底为原点、幻翼躯干原点在身体中心，两个坐标系不同，
  * 所以由渲染器每帧按 {@code yg-mobs.json} 的偏移/缩放把苦力怕那块平移到位（见
  * {@link PhantomCreeperRenderer}）。观感不合适只改配置里的数值，不用重新编译。
+ *
+ * <p><b>苦力怕块为什么不挂进混合树</b>（v1.3.0 修复「材质分离」）：26.2 的每趟模型提交
+ * 都会<b>遍历整棵树</b> —— 把苦力怕块挂进树里，它就会被幻翼贴图趟与幻翼眼睛发光层
+ * （{@code PhantomEyesLayer}，整棵树再用 {@code phantom_eyes.png} 采一遍）先后采样，
+ * 在苦力怕头身表面叠出两套错位材质，与第二趟正确的苦力怕贴图互相竞争。
+ * 所以树里只放幻翼的 {@code body}，苦力怕块由渲染器<b>独立持有</b>、单独以苦力怕贴图提交。
  */
 public class PhantomCreeperModel extends PhantomModel {
 
 	/** 幻翼翅膀 / 尾巴的那一半（躯干隐藏，只用来挂着翅膀与尾巴）。 */
 	public static final String PHANTOM_KEY = "body";
-
-	/** 新树里挂苦力怕「头 + 躯干」那一块的键名。 */
-	public static final String CREEPER_KEY = "yg_creeper";
 
 	/** 苦力怕的四条腿：只要头和躯干，腿不要（幻翼本来就没有腿）。 */
 	private static final String[] CREEPER_LEGS = {
@@ -54,7 +58,7 @@ public class PhantomCreeperModel extends PhantomModel {
 	private final ModelPart creeperPart;
 
 	public PhantomCreeperModel(ModelPart phantomRoot, ModelPart creeperRoot) {
-		super(buildRoot(phantomRoot, creeperRoot));
+		super(buildRoot(phantomRoot.getChild(PHANTOM_KEY)));
 
 		this.creeperPart = creeperRoot;
 
@@ -77,14 +81,15 @@ public class PhantomCreeperModel extends PhantomModel {
 	}
 
 	/**
-	 * 拼出新模型树：幻翼的 {@code body}（翅膀 / 尾巴都在它下面）+ 苦力怕整块。
+	 * 拼出新模型树：只放幻翼的 {@code body}（翅膀 / 尾巴都在它下面）。
 	 *
 	 * <p>幻翼的 {@code body} 必须原样放进来，否则父类构造取部件时找不到 → 抛异常。
+	 * 苦力怕块<b>刻意不挂</b> —— 见类注释「材质分离」：挂进树里会被幻翼贴图趟与
+	 * 眼睛发光层先后采样，叠出错位材质；它由渲染器独立持有、单独提交。
 	 */
-	private static ModelPart buildRoot(ModelPart phantomRoot, ModelPart creeperRoot) {
+	private static ModelPart buildRoot(ModelPart phantomBody) {
 		Map<String, ModelPart> children = new LinkedHashMap<>();
-		children.put(PHANTOM_KEY, phantomRoot.getChild(PHANTOM_KEY));
-		children.put(CREEPER_KEY, creeperRoot);
+		children.put(PHANTOM_KEY, phantomBody);
 		return new ModelPart(List.of(), children);
 	}
 
