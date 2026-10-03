@@ -57,6 +57,18 @@ class MobsRegressionTest {
 	}
 
 	@Test
+	void legacyBuriedOffsetPairMigratesToZero() throws Exception {
+		Files.writeString(configDir.resolve(MobsConfig.FILE_NAME),
+				"{\"phantomCreeperBodyYOffset\": -7.5, \"phantomCreeperBodyZOffset\": -7.0}");
+		MobsConfig cfg = MobsConfig.load();
+		// -7.5/-7.0 是 v1.0.x 的「纸面推导」默认值，实测把苦力怕送到不可见的位置。
+		// 老配置里成对出现的这组值几乎必然是当年存下来的默认值而非刻意调的，
+		// validate() 自动归零即修复 —— 本测试钉死迁移行为，防止将来被当回归误删。
+		assertEquals(0.0F, cfg.phantomCreeperBodyYOffset, "旧默认对 (-7.5,-7.0) 自动迁移归零");
+		assertEquals(0.0F, cfg.phantomCreeperBodyZOffset, "旧默认对 (-7.5,-7.0) 自动迁移归零");
+	}
+
+	@Test
 	void explicitFalseInJsonMustNotBeOverwritten() throws Exception {
 		Files.writeString(configDir.resolve(MobsConfig.FILE_NAME),
 				"{\"phantomCreeperEnabled\": true, \"phantomCreeperVisual\": false}");

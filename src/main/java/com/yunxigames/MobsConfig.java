@@ -68,22 +68,24 @@ public final class MobsConfig extends YgConfig {
 	/**
 	 * 苦力怕头身的<b>垂直</b>偏移（模型单位，16 = 1 格；正数往上）。
 	 *
-	 * <p><b>坐标系实测结论</b>（gametest 六轴探针，v1.1.0）：第二趟提交发生在
-	 * {@code LivingEntityRenderer} 的翻转/旋转之后，该坐标系里 <b>+Y = 世界上方</b>、
-	 * 原点 ≈ 幻翼躯干中心，所以默认 <b>0</b>（恒等位姿）就是正确对位 —— 头身正好落在
-	 * 两侧翅膀根部之间。游戏里看着偏高 / 偏低就调它（正上负下）。
+	 * <p><b>坐标系实测结论</b>（gametest 截图迭代，v1.1.0）：第二趟提交发生在
+	 * {@code LivingEntityRenderer} 翻转链<b>之外</b>，该坐标系里 <b>+Y = 世界上方</b>、
+	 * 原点 ≈ 幻翼躯干中心（两翼根部之间）。渲染器已复刻原版模型翻转（见
+	 * {@code PhantomCreeperRenderer}），苦力怕正立、脚底站在原点上 ——
+	 * 默认 <b>0</b> 就是 v1.0.0 时代「长在树上」的拼接位：两翼根长在苦力怕身上，
+	 * 头顶从翅膀上缘探出。想整体抬高 / 压低再调它（正上负下）。
 	 *
-	 * <p><b>历史教训</b>：初版默认 -7.5 来自「两套躯干中心之差」的纸面推导，但那个推导
-	 * 用错了坐标系（没考虑渲染管线的翻转/平移链），实际把苦力怕整个送进了地面 ——
-	 * v1.0.0 时代被「树里的苦力怕（材质分离元凶）」掩盖，v1.1.0 拆树后彻底不可见。
+	 * <p><b>历史教训</b>：初版默认 -7.5/-7.0 是「两套躯干中心之差」的纸面推导，
+	 * 既推错了坐标系、又没发现第二趟缺模型翻转（苦力怕头朝下倒挂），实际效果是
+	 * 彻底不可见。v1.1.0 用 gametest 截图逐帧迭代才定位。
 	 */
 	public float phantomCreeperBodyYOffset = 0.0F;
 
 	/**
 	 * 苦力怕头身的<b>前后</b>偏移（模型单位）。
 	 *
-	 * <p>默认 <b>0</b>（恒等位姿已对齐）；想让苦力怕头「探出躯干前缘」再微调，
-	 * 方向游戏里试一下即知（正负各试一格）。
+	 * <p>默认 <b>0</b>：苦力怕模型自身前后对称（深度 4 居中），而幻翼翅膀根就长在
+	 * z≈0 平面上，0 即对齐。想让它前探 / 后缩再微调。
 	 */
 	public float phantomCreeperBodyZOffset = 0.0F;
 
@@ -166,6 +168,14 @@ public final class MobsConfig extends YgConfig {
 
 		// 外观对位：全部用 !(x >= lo && x <= hi) 的写法，NaN 一并落到默认值。
 		// 默认值与字段声明处保持一致（0 / 0），改一处记得改两处。
+		// 迁移：-7.5 / -7.0 是 v1.0.x 的「纸面推导」默认值，实测会把苦力怕送到
+		// 不可见的位置（还叠加第二趟缺模型翻转的问题）—— 老配置里成对出现的
+		// 这组值几乎必然是当年存下来的默认值而非刻意调的，自动归零即修复。
+		if (phantomCreeperBodyYOffset == -7.5F && phantomCreeperBodyZOffset == -7.0F) {
+			phantomCreeperBodyYOffset = 0.0F;
+			phantomCreeperBodyZOffset = 0.0F;
+		}
+
 		if (!(phantomCreeperBodyYOffset >= -32.0F && phantomCreeperBodyYOffset <= 32.0F)) {
 			phantomCreeperBodyYOffset = 0.0F;
 		}

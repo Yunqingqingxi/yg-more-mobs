@@ -137,13 +137,32 @@ public class PhantomCreeperRenderer extends PhantomRenderer {
 
 		poseStack.pushPose();
 		try {
-			// 把苦力怕那一块对到幻翼躯干的位置。实测（gametest 六轴探针）：本坐标系
-			// +Y = 世界上方、原点 ≈ 幻翼躯干中心，所以默认 0/0 就是正确对位；
-			// 数值可游戏里改 json 微调（早期默认 -7.5/-7.0 会把苦力怕整个埋进地面）。
+			// 1) 配置偏移最先做：此刻轴还是纯世界轴（+Y = 世界上方、+Z = 朝尾巴方向），
+			//    改 json 直观可调。对齐本身不靠它：苦力怕头 / 躯干已摆进幻翼的 raw 坐标系
+			//    （见模型类），这里只剩观感微调职责。
 			poseStack.translate(0.0F, config.phantomCreeperBodyYOffset, config.phantomCreeperBodyZOffset);
 			poseStack.scale(config.phantomCreeperBodyScale,
 					config.phantomCreeperBodyScale,
 					config.phantomCreeperBodyScale);
+
+			// 2) 逐帧复刻第一趟（super.submit → LivingEntityRenderer）pushPose 内部的
+			//    <b>完整</b>基变换链。只复刻 scale(-1,-1,1)+translate(0,-1.501,0) 是不够的
+			//    （gametest 两次实锤）：
+			//    a) 漏了 setupRotations —— 里面有 180-bodyRot 的偏航 + PhantomRenderer 覆写的
+			//       xRot 俯仰，第二趟机身会指向另一个水平方向；
+			//    b) 漏了 PhantomRenderer#scale —— 它在翻转系里还有 scale(1+0.15*size) 和
+			//       <b>translate(0, 1.3125, 0.1875)</b>，等于把幻翼整副骨架又下移 1.3125 格，
+			//       不复刻它机身就悬在翅膀上方约 1.3 格（2026-10-03 截图实测）。
+			//    这里直接调用本类继承到的虚方法（setupRotations / scale），虚分派自动带上
+			//    PhantomRenderer 的覆写，与第一趟的链路逐字节一致，原版改了这里也跟着对。
+			float entityScale = state.scale;
+			poseStack.scale(entityScale, entityScale, entityScale);
+			this.setupRotations(state, poseStack, state.bodyRot, entityScale);
+			poseStack.scale(-1.0F, -1.0F, 1.0F);
+			this.scale(state, poseStack);
+			poseStack.translate(0.0F, -1.501F, 0.0F);
+
+			//    拼装（头 / 躯干的位姿）见 PhantomCreeperModel.CreeperPartModel#setupAnim。
 
 			collector.submitModel(this.creeperPart, state, poseStack, CREEPER_RENDER_TYPE,
 					state.lightCoords, overlay, tint, null, state.outlineColor, null);

@@ -35,9 +35,10 @@ import java.util.Map;
  * {@code root.getChild("body")} → {@code body.getChild("tail_base" / "left_wing_base" / "right_wing_base")}，
  * 自己另建一棵不含 {@code body} 的树会直接抛「找不到部件」→ 渲染器构造失败 → 黑屏。
  *
- * <p><b>位置对齐</b>：苦力怕以脚底为原点、幻翼躯干原点在身体中心，两个坐标系不同，
- * 所以由渲染器每帧按 {@code yg-mobs.json} 的偏移/缩放把苦力怕那块平移到位（见
- * {@link PhantomCreeperRenderer}）。观感不合适只改配置里的数值，不用重新编译。
+	 * <p><b>位置对齐</b>：苦力怕头 / 躯干在 {@link CreeperPartModel#setupAnim} 里直接摆进
+	 * <b>幻翼的 raw 坐标系</b>（幻翼 body pivot = 原点），与翅膀 / 尾巴共用同一个基变换，
+	 * 拼接由坐标系本身保证；{@code yg-mobs.json} 的偏移 / 缩放只剩观感微调职责（见
+	 * {@link PhantomCreeperRenderer}）。
  *
  * <p><b>苦力怕块为什么不挂进混合树</b>（v1.1.0 修复「材质分离」）：26.2 的每趟模型提交
  * 都会<b>遍历整棵树</b> —— 把苦力怕块挂进树里，它就会被幻翼贴图趟与幻翼眼睛发光层
@@ -102,12 +103,62 @@ public class PhantomCreeperModel extends PhantomModel {
 	/**
 	 * 苦力怕那一块的最小包装模型：只为让渲染器能把它当作一个 {@code Model} 用苦力怕贴图提交。
 	 *
-	 * <p>它不参与动画（{@code EntityModel#setupAnim} 是空实现）—— 头身跟着幻翼躯干走，
-	 * 由渲染器按配置偏移平移整块，不需要逐帧摆姿势。
+	 * <p>{@link #setupAnim} 里做<b>静态拼装</b>：把直立的苦力怕改拼成参考图的
+	 * 「绿机身」造型（2026-09-22 参考图，云兮拍板）—— 躯干放倒沿飞行方向平铺，
+	 * 头保持正立接在躯干前端。渲染器每帧绘制前都会调用本方法，所以位姿每帧覆写即可，
+	 * 也不需要父类的 {@code resetPose}（那反而会把位姿打回烘焙原状）。
 	 */
 	public static final class CreeperPartModel extends EntityModel<PhantomRenderState> {
+
+		private final ModelPart head;
+		private final ModelPart body;
+
 		public CreeperPartModel(ModelPart creeperRoot) {
 			super(creeperRoot);
+			this.head = creeperRoot.getChild("head");
+			this.body = creeperRoot.getChild("body");
+		}
+
+		/**
+		 * 拼装「绿机身」。坐标是 <b>幻翼的 raw 模型系</b>（+Y 向下，16 单位 = 1 格），
+		 * 经渲染器复刻的原版翻转（scale(-1,-1,1) + translate(0,-1.501,0)）后成为世界系。
+		 *
+		 * <p><b>为什么必须用幻翼的坐标系</b>（2026-10-03 修复「身体和翅膀分离」）：
+		 * 反编译 26.2 PhantomModel 实锤 —— 幻翼 body 的 pivot 是 <b>(0,0,0)</b>，本体 cube
+		 * 只占 raw x -3..2 / y -2..1 / z -8..1，翅膀平面在 raw y -2..0，尾巴 z 0..12；
+		 * 整只幻翼贴着模型原点长。早先把苦力怕摆在 raw y≈24（照搬 32 高人形的脚底翻转公式），
+		 * 同一个翻转下机身落在世界 y≈0、翅膀却渲染在世界 y≈1.53 —— 中间空出 1.5 格，
+		 * 两趟提交各画各的，肉眼看就是「翅膀和身子分离」。把苦力怕搬进幻翼的 raw 系，
+		 * 两趟共用同一个基变换，<b>对齐由坐标系本身保证</b>，不再依赖任何手调偏移。
+		 *
+		 * <p>幻翼原始几何（反编译值，拼装全部以此为锚）：
+		 * <ul>
+		 *   <li>body cube x -3..2（<b>偏心 0.5</b>，中心 x=-0.5）、y -2..1、z -8..1；</li>
+		 *   <li>翅膀 left_wing_base x 2..8 / right_wing_base x -9..-3，y -2..0，z -8..1
+		 *       —— 两翼关于 x=-0.5 对称；</li>
+		 *   <li>tail_base pivot(0,-2,0) cube z 0..6、tail_tip 接 z 6..12。</li>
+		 * </ul>
+		 *
+		 * <p>目标布局（同一 raw 系）：<b>躯干</b>绕 X +90° 平铺 z -8..+4、横截面
+		 * x ±4、厚 4 居中于翼根平面（y -3..+1，翼根 y -2..0 整段嵌进躯干里）；
+		 * tail_base 前段 z 0..4 被躯干吞住、从 z +4 接出 —— 尾巴与机身无缝相连。
+		 * <b>头</b>不旋转（脸朝 -Z = 前进方向），z -16..-8 接住躯干前端，
+		 * y -5..+3 与躯干同中心（raw y -1）；x 与翅膀同取 -0.5 偏心。
+		 */
+		@Override
+		public void setupAnim(PhantomRenderState state) {
+			// 躯干：pivot raw(-0.5, -1, -8)，xRot=+90° 把「向下 12 单位」翻成「向后 +Z 12 单位」。
+			this.body.setPos(-0.5F, -1.0F, -8.0F);
+			this.body.xRot = (float) (Math.PI / 2.0);
+			this.body.yRot = 0.0F;
+			this.body.zRot = 0.0F;
+
+			// 头：pivot raw(-0.5, 3, -12)，cube 在 pivot 上方 8 单位 → y -5..+3，
+			// z -16..-8 与躯干前端相接；不旋转 = 脸保持朝前。
+			this.head.setPos(-0.5F, 3.0F, -12.0F);
+			this.head.xRot = 0.0F;
+			this.head.yRot = 0.0F;
+			this.head.zRot = 0.0F;
 		}
 	}
 }
