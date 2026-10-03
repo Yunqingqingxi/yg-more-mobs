@@ -36,8 +36,8 @@ class MobsUnitTest {
 		cfg.phantomCreeperBodyZOffset = Float.NaN;
 		cfg.phantomCreeperBodyScale = Float.NaN;
 		cfg.validate();
-		assertEquals(-7.5F, cfg.phantomCreeperBodyYOffset, "Y 偏移默认 -7.5，必须精确（对位用）");
-		assertEquals(-7.0F, cfg.phantomCreeperBodyZOffset, "Z 偏移默认 -7.0，必须精确（对位用）");
+		assertEquals(0.0F, cfg.phantomCreeperBodyYOffset, "Y 偏移默认 0（恒等位姿，gametest 实测对位），必须精确");
+		assertEquals(0.0F, cfg.phantomCreeperBodyZOffset, "Z 偏移默认 0（恒等位姿），必须精确");
 		assertEquals(1.0F, cfg.phantomCreeperBodyScale);
 	}
 

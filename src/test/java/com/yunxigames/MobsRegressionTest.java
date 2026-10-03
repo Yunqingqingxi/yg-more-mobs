@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * yg-mobs 回归测试：钉死本包真踩过的两个坑。
  *
- * <p>① Gson 缺项数值读成 0 —— 对位偏移默认 -7.5，缺项曾静默变成 0 导致头身错位
- * （自检断言精确默认值才抓到）；② 旧布尔盲补写法把玩家明确写的 false 偷改回 true。
+ * <p>① Gson 缺项数值读成 0 —— 对位偏移默认值必须精确补回（旧默认 -7.5 时代缺项变 0 曾
+ * 掩盖错位；v1.1.0 实测恒等位姿才是正确对位，默认改 0/0，缩放 1.0 仍是非零锚点）；
+ * ② 旧布尔盲补写法把玩家明确写的 false 偷改回 true。
  */
 class MobsRegressionTest {
 
@@ -38,9 +39,13 @@ class MobsRegressionTest {
 		Files.writeString(configDir.resolve(MobsConfig.FILE_NAME),
 				"{\"phantomCreeperEnabled\": true}");
 		MobsConfig cfg = MobsConfig.load();
-		assertEquals(-7.5F, cfg.phantomCreeperBodyYOffset,
-				"缺项 Y 偏移必须补回 -7.5（Gson 缺项是 0.0，而 0 在 [-32,32] 内不会被钳制——只能靠缺项补回）");
-		assertEquals(-7.0F, cfg.phantomCreeperBodyZOffset);
+		// v1.1.0 起默认 0/0（恒等位姿）。0 与「Gson 缺项读成的 0」数值上不可分辨，
+		// 但断言仍然钉死「缺项 = 代码默认」这条链路；缩放默认 1.0 才是非零锚点
+		//（旧默认 -7.5/-7.0 的教训：纸面推导的对位偏移把苦力怕整个埋进了地面）。
+		assertEquals(0.0F, cfg.phantomCreeperBodyYOffset, "缺项 Y 偏移补回代码默认 0");
+		assertEquals(0.0F, cfg.phantomCreeperBodyZOffset, "缺项 Z 偏移补回代码默认 0");
+		assertEquals(1.0F, cfg.phantomCreeperBodyScale,
+				"缺项缩放必须补回 1.0 而不是 Gson 的 0.0（scale=0 模型整体消失）");
 	}
 
 	@Test

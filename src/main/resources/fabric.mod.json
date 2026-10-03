@@ -15,6 +15,9 @@
 		],
 		"client": [
 			"com.yunxigames.mobs.client.YunxiGamesMobsClient"
+		],
+		"fabric-client-gametest": [
+			"com.yunxigames.mobs.client.gametest.PhantomRenderGameTest"
 		]
 	},
 	"mixins": [

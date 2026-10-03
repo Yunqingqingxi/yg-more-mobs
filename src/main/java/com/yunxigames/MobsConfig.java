@@ -66,25 +66,26 @@ public final class MobsConfig extends YgConfig {
 	public boolean phantomCreeperVisual = true;
 
 	/**
-	 * 苦力怕头身的<b>垂直</b>偏移（模型单位，16 = 1 格；负数往下）。
+	 * 苦力怕头身的<b>垂直</b>偏移（模型单位，16 = 1 格；正数往上）。
 	 *
-	 * <p>两套坐标系不同：苦力怕模型以<b>脚底</b>为原点（躯干立方体在 y 0~12、即中心 y=6），
-	 * 幻翼躯干原点就在<b>身体中心</b>、立方体从 y=-2 到 y=+1（中心 y=-0.5）。
-	 * 要对齐两者的躯干中心，偏移 = -0.5 - 6 = <b>-7.5</b>（初版误取两"原点"之差 -9.0，
-	 * 结果头身整体沉下去 1.5 单位）。游戏里看着偏高 / 偏低就调它。
+	 * <p><b>坐标系实测结论</b>（gametest 六轴探针，v1.1.0）：第二趟提交发生在
+	 * {@code LivingEntityRenderer} 的翻转/旋转之后，该坐标系里 <b>+Y = 世界上方</b>、
+	 * 原点 ≈ 幻翼躯干中心，所以默认 <b>0</b>（恒等位姿）就是正确对位 —— 头身正好落在
+	 * 两侧翅膀根部之间。游戏里看着偏高 / 偏低就调它（正上负下）。
+	 *
+	 * <p><b>历史教训</b>：初版默认 -7.5 来自「两套躯干中心之差」的纸面推导，但那个推导
+	 * 用错了坐标系（没考虑渲染管线的翻转/平移链），实际把苦力怕整个送进了地面 ——
+	 * v1.0.0 时代被「树里的苦力怕（材质分离元凶）」掩盖，v1.1.0 拆树后彻底不可见。
 	 */
-	public float phantomCreeperBodyYOffset = -7.5F;
+	public float phantomCreeperBodyYOffset = 0.0F;
 
 	/**
-	 * 苦力怕头身的<b>前后</b>偏移（模型单位；负数朝幻翼头部方向，即前）。
+	 * 苦力怕头身的<b>前后</b>偏移（模型单位）。
 	 *
-	 * <p>取 <b>-7.0</b> 是为了把苦力怕的头摆到参考图里那样"探出躯干前缘"的位置：
-	 * 苦力怕躯干深度只有 4（-2~+2），而幻翼躯干深度 9（-8~+1）——
-	 * 苦力怕偏"粗短"、幻翼偏"细长"，两者不可能同时贴合。
-	 * 所以优先保证<b>外观最显眼的头</b>：偏移 -7 后苦力怕头的正面（-8~-4）与幻翼躯干前缘
-	 * （-8）齐平、方块探出在前；躯干落在 -5~-1，正好卡在两侧翅膀根部之间。
+	 * <p>默认 <b>0</b>（恒等位姿已对齐）；想让苦力怕头「探出躯干前缘」再微调，
+	 * 方向游戏里试一下即知（正负各试一格）。
 	 */
-	public float phantomCreeperBodyZOffset = -7.0F;
+	public float phantomCreeperBodyZOffset = 0.0F;
 
 	/**
 	 * 苦力怕头身的缩放（1.0 = 原尺寸）。
@@ -164,13 +165,13 @@ public final class MobsConfig extends YgConfig {
 		phantomCreeperExplosionPower = Math.min(16.0F, phantomCreeperExplosionPower);
 
 		// 外观对位：全部用 !(x >= lo && x <= hi) 的写法，NaN 一并落到默认值。
-		// 默认值与字段声明处保持一致（-7.5 / -7.0），改一处记得改两处。
+		// 默认值与字段声明处保持一致（0 / 0），改一处记得改两处。
 		if (!(phantomCreeperBodyYOffset >= -32.0F && phantomCreeperBodyYOffset <= 32.0F)) {
-			phantomCreeperBodyYOffset = -7.5F;
+			phantomCreeperBodyYOffset = 0.0F;
 		}
 
 		if (!(phantomCreeperBodyZOffset >= -32.0F && phantomCreeperBodyZOffset <= 32.0F)) {
-			phantomCreeperBodyZOffset = -7.0F;
+			phantomCreeperBodyZOffset = 0.0F;
 		}
 
 		// 缩放下限 0.1 防止缩成 0 后模型消失；上限 4 防止糊满屏幕。

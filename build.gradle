@@ -24,6 +24,16 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	// 渲染取证的客户端 gametest 运行配置（临时诊断用）：
+	// ./gradlew runGametestClient —— 自动开世界、召唤冻结幻翼、截屏存盘
+	runs {
+		gametestClient {
+			client()
+			name "Client Game Test"
+			vmArg "-Dfabric.client.gametest=true"
+		}
+	}
 }
 
 repositories {

@@ -72,7 +72,7 @@ public class PhantomCreeperRenderer extends PhantomRenderer {
 
 		// 混合树与原版树必须是两份独立的幻翼骨架：context.bakeLayer 对同一层有缓存语义，
 		// 共用一份实例的话，混合侧对 body/head 的隐藏改动会污染原版模型 ——
-		// 关掉 phantomCreeperVisual 后幻翼会只剩翅膀、没有躯干和头（v1.3.0 修复）。
+		// 关掉 phantomCreeperVisual 后幻翼会只剩翅膀、没有躯干和头（v1.1.0 修复）。
 		// 原版树用 createBodyLayer 现烤一份干净的，绝不共享。
 		ModelPart phantomRoot = context.bakeLayer(ModelLayers.PHANTOM);
 		ModelPart vanillaRoot = PhantomModel.createBodyLayer().bakeRoot();
@@ -137,7 +137,9 @@ public class PhantomCreeperRenderer extends PhantomRenderer {
 
 		poseStack.pushPose();
 		try {
-			// 把苦力怕那一块对到幻翼躯干的位置（数值来自配置，游戏里看着调）
+			// 把苦力怕那一块对到幻翼躯干的位置。实测（gametest 六轴探针）：本坐标系
+			// +Y = 世界上方、原点 ≈ 幻翼躯干中心，所以默认 0/0 就是正确对位；
+			// 数值可游戏里改 json 微调（早期默认 -7.5/-7.0 会把苦力怕整个埋进地面）。
 			poseStack.translate(0.0F, config.phantomCreeperBodyYOffset, config.phantomCreeperBodyZOffset);
 			poseStack.scale(config.phantomCreeperBodyScale,
 					config.phantomCreeperBodyScale,

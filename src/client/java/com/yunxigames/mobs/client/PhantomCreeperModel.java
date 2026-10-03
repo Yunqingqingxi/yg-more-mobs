@@ -25,7 +25,8 @@ import java.util.Map;
  *   <li>幻翼自己的躯干方块用 {@code skipDraw = true} 藏掉（<b>只跳过自身方块，子部件照常渲染</b>，
  *       所以翅膀不会被误伤；用 {@code visible=false} 会把翅膀一起藏掉）；</li>
  *   <li>幻翼的 {@code head} 是 {@code body} 的子部件，单独 {@code visible = false}；</li>
- *   <li>苦力怕的 {@code root}（root 自身就是躯干、{@code head} 挂在它下面，「头 + 躯干」一次凑齐；
+ *   <li>苦力怕的 {@code root}（root 本身没有 cube，只是挂载点 —— 躯干是它名为
+ *       {@code body} 的子部件、头是 {@code head}，「头 + 躯干」随子树一起提交；
  *       四条腿与腿上的脚全部藏掉）<b>不挂进树</b>，由渲染器独立持有、单独以苦力怕贴图提交
  *       —— 原因见下方「材质分离」。</li>
  * </ul>
@@ -38,7 +39,7 @@ import java.util.Map;
  * 所以由渲染器每帧按 {@code yg-mobs.json} 的偏移/缩放把苦力怕那块平移到位（见
  * {@link PhantomCreeperRenderer}）。观感不合适只改配置里的数值，不用重新编译。
  *
- * <p><b>苦力怕块为什么不挂进混合树</b>（v1.3.0 修复「材质分离」）：26.2 的每趟模型提交
+ * <p><b>苦力怕块为什么不挂进混合树</b>（v1.1.0 修复「材质分离」）：26.2 的每趟模型提交
  * 都会<b>遍历整棵树</b> —— 把苦力怕块挂进树里，它就会被幻翼贴图趟与幻翼眼睛发光层
  * （{@code PhantomEyesLayer}，整棵树再用 {@code phantom_eyes.png} 采一遍）先后采样，
  * 在苦力怕头身表面叠出两套错位材质，与第二趟正确的苦力怕贴图互相竞争。
@@ -54,7 +55,7 @@ public class PhantomCreeperModel extends PhantomModel {
 			"right_hind_leg", "left_hind_leg", "right_front_leg", "left_front_leg",
 	};
 
-	/** 苦力怕那一块（root 自身就是躯干，head 挂在它下面）。 */
+	/** 苦力怕那一块（root 本身无 cube，只是挂载点：躯干是 {@code body} 子部件、头是 {@code head}）。 */
 	private final ModelPart creeperPart;
 
 	public PhantomCreeperModel(ModelPart phantomRoot, ModelPart creeperRoot) {
